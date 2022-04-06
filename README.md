@@ -21,7 +21,7 @@ Optional Env Vars:
 
 `TS_AUTHKEY` is now enabled for this project. You can provide this variable with a key, consult the tailscale documentation to determine the appropriate key to use.
 
-`TS_STATEDIR` is the location where the persistent data for the sidecar will be stored. This is used to not need to re-authorise the instance. In a container setup, you'll want to have this persisted. The default is `./tsstate`, which will result in Tailscale using `home/nonroot/tsstate` in the Docker container.
+`TS_STATEDIR` is the location where Tailscale keeps its state data.. This is used to not need to re-authorise the instance.
 
 
 ## Credits
