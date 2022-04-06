@@ -97,7 +97,6 @@ func newTsNetServer() tsnet.Server {
 }
 
 func dialAndCat(s *tsnet.Server) {
-
 	ctx := context.Background()
 
 	hostAndPort := Config.host + ":" + Config.port
@@ -111,7 +110,6 @@ func dialAndCat(s *tsnet.Server) {
 }
 
 func main() {
-
 	flag.StringVar(&Config.host, "host", "", "SSH Host")
 	flag.StringVar(&Config.port, "port", "22", "SSH Port")
 	flag.BoolVar(&Config.noisy, "noisy", false, "Spam the console with debug messages")
@@ -152,5 +150,4 @@ func main() {
 	}
 
 	dialAndCat(&s)
-
 }
