@@ -9,15 +9,18 @@ import (
 	"os"
 	"time"
 
-	"tailscale.com/client/tailscale"
+	"github.com/mdp/qrterminal/v3"
+
 	"tailscale.com/tsnet"
 	"tailscale.com/types/logger"
 )
 
 var Config struct {
+	hostname string
 	host  string
 	port  string
 	noisy bool
+	qr bool
 }
 
 // Stolem from: https://github.com/vfedoroff/go-netcat/blob/87e3e79d77ee6a0b236a784be83759a4d002a20d/main.go#L16
@@ -66,33 +69,17 @@ func stream_copy(src io.Reader, dst io.Writer) <-chan int {
 	return sync_channel
 }
 
-func newTsNetServer() tsnet.Server {
-	hostname := os.Getenv("TS_SIDECAR_NAME")
-	if hostname == "" {
-		hostname = "tailscale-netcat-hack"
-		// panic("TS_SIDECAR_NAME env var not set")
-	}
-
-	stateDir := os.Getenv("TS_STATEDIR")
-	if stateDir == "" {
-		stateDir = "./tsstate"
-	}
-
-	if err := os.MkdirAll(stateDir, 0o755); err != nil {
-		panic("failed to create default state directory")
-	}
-
+func newTsNetServer() *tsnet.Server {
 	var loggerF logger.Logf
 
 	if !Config.noisy {
 		loggerF = logger.Discard
 	}
 
-	return tsnet.Server{
-		Dir:       stateDir,
-		Hostname:  hostname,
+	return &tsnet.Server{
+		Hostname:  Config.hostname,
 		Ephemeral: true,
-		Logf:      loggerF,
+		Logf: loggerF,
 	}
 }
 
@@ -110,10 +97,18 @@ func dialAndCat(s *tsnet.Server) {
 }
 
 func main() {
-	flag.StringVar(&Config.host, "host", "", "SSH Host")
-	flag.StringVar(&Config.port, "port", "22", "SSH Port")
-	flag.BoolVar(&Config.noisy, "noisy", false, "Spam the console with debug messages")
+	flag.StringVar(&Config.host, "host", "bostonpi", "Host")
+	flag.StringVar(&Config.port, "port", "22", "Port")
+	flag.BoolVar(&Config.qr, "qr", false, "QR Code URLs")
+	flag.BoolVar(&Config.noisy, "verbose", false, "Verbose Logging")
 	flag.Parse()
+
+	hostname := os.Getenv("TS_HOSTNAME")
+	if hostname == "" {
+		hostname = "tailscale-netcat"
+	}
+
+	Config.hostname = hostname
 
 	if Config.host == "" || Config.port == "" {
 		flag.PrintDefaults()
@@ -131,16 +126,30 @@ func main() {
 	// s.Dial should do this but it wasnt working?
 	s.Start()
 
+	lc, _ := s.LocalClient()
+
 	// Either this is doing something or it's enough of a race condition for Tailscale to start
 	// before the Dial times out
 	for i := 0; i < 60; i++ {
-		st, err := tailscale.Status(context.Background())
+		st, err := lc.Status(context.Background())
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		if st.BackendState == "NeedsLogin" {
-			log.Fatalf("NeedsLogin: %s\n", st.AuthURL)
+			if st.AuthURL == "" {
+				continue
+			}
+			if Config.qr {
+				qrterminal.Generate(st.AuthURL, qrterminal.M, os.Stdout)
+			}
+			log.Printf("NeedsLogin: %s\n", st.AuthURL)
+			for {
+				time.Sleep(time.Second * 10)
+				if st.BackendState == "Running" {
+					break
+				}
+			}
 		}
 
 		if st.BackendState == "Running" {
@@ -149,5 +158,5 @@ func main() {
 		time.Sleep(time.Second)
 	}
 
-	dialAndCat(&s)
+	dialAndCat(s)
 }
