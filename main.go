@@ -97,7 +97,7 @@ func dialAndCat(s *tsnet.Server) {
 }
 
 func main() {
-	flag.StringVar(&Config.host, "host", "bostonpi", "Host")
+	flag.StringVar(&Config.host, "host", "", "Host")
 	flag.StringVar(&Config.port, "port", "22", "Port")
 	flag.BoolVar(&Config.qr, "qr", false, "QR Code URLs")
 	flag.BoolVar(&Config.noisy, "verbose", false, "Verbose Logging")
